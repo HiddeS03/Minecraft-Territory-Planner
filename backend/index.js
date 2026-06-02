@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const path = require('path');
 
@@ -40,35 +41,17 @@ if (!fs.existsSync(STATE_PATH)) {
 }
 
 
-const createRateLimiter = ({ windowMs, maxRequests }) => {
-  const requests = new Map();
-
-  return (req, res, next) => {
-    const now = Date.now();
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    const entry = requests.get(ip);
-
-    if (!entry || now > entry.resetAt) {
-      requests.set(ip, { count: 1, resetAt: now + windowMs });
-      return next();
-    }
-
-    if (entry.count >= maxRequests) {
-      return res.status(429).json({ error: 'Too many requests. Try again shortly.' });
-    }
-
-    entry.count += 1;
-    requests.set(ip, entry);
-    return next();
-  };
-};
-
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 40 * 1024 * 1024 },
 });
 
-const apiRateLimiter = createRateLimiter({ windowMs: 60_000, maxRequests: 240 });
+const apiRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+});
 
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));

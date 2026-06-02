@@ -7,6 +7,7 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const MAX_MAP_FILE_SIZE_MB = 40;
 const DATA_DIR = path.join(__dirname, 'data');
 const STATE_PATH = path.join(DATA_DIR, 'state.json');
 const MAP_PATH = path.join(DATA_DIR, 'map.png');
@@ -43,12 +44,19 @@ if (!fs.existsSync(STATE_PATH)) {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 40 * 1024 * 1024 },
+  limits: { fileSize: MAX_MAP_FILE_SIZE_MB * 1024 * 1024 },
 });
 
 const apiRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 60,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+});
+
+const paintRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
 });
@@ -104,7 +112,7 @@ app.get('/api/map-image', (_req, res) => {
   return res.sendFile(MAP_PATH);
 });
 
-app.post('/api/zones/paint', (req, res) => {
+app.post('/api/zones/paint', paintRateLimiter, (req, res) => {
   const { cells } = req.body || {};
   if (!Array.isArray(cells)) {
     return res.status(400).json({ error: 'cells must be an array.' });

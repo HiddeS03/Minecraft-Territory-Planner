@@ -20,7 +20,7 @@ function App() {
   const [centerZ, setCenterZ] = useState(0)
   const [color, setColor] = useState('#e63946')
   const [drawMode, setDrawMode] = useState(false)
-  const [adminMode, setAdminMode] = useState(true)
+  const [adminMode, setAdminMode] = useState(false)
   const [zoom, setZoom] = useState(1)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [zones, setZones] = useState({})

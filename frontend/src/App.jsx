@@ -337,7 +337,7 @@ function App() {
     })
 
     if (!response.ok) {
-      setMessage('Claimging mislukt: mogelijk al geclaimd.')
+      setMessage('Claimen mislukt: mogelijk al geclaimd.')
       await loadState()
       return
     }

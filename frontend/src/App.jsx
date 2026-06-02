@@ -25,7 +25,6 @@ function App() {
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [zones, setZones] = useState({})
   const [mapVersion, setMapVersion] = useState(null)
-  const [mapReady, setMapReady] = useState(false)
   const [message, setMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
@@ -74,22 +73,43 @@ function App() {
     ctx.restore()
   }, [offset.x, offset.y, zoom, zones])
 
-  const loadState = useCallback(async () => {
-    const response = await fetch(`${API_BASE}/state`)
-    const state = await response.json()
-
+  const applyServerState = useCallback((state) => {
     setCenterX(state.centerX ?? 0)
     setCenterZ(state.centerZ ?? 0)
     setZones(state.zones ?? {})
     setMapVersion(state.mapVersion)
   }, [])
 
+  const refreshState = useCallback(async () => {
+    const response = await fetch(`${API_BASE}/state`)
+    const state = await response.json()
+    applyServerState(state)
+  }, [applyServerState])
+
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadState().catch(() => {
-      setMessage('Kon de serverstatus niet laden.')
-    })
-  }, [loadState])
+    let ignore = false
+
+    const fetchState = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/state`)
+        const state = await response.json()
+
+        if (!ignore) {
+          applyServerState(state)
+        }
+      } catch {
+        if (!ignore) {
+          setMessage('Kon de serverstatus niet laden.')
+        }
+      }
+    }
+
+    fetchState()
+
+    return () => {
+      ignore = true
+    }
+  }, [applyServerState])
 
   useEffect(() => {
     const wrapper = wrapperRef.current
@@ -114,8 +134,6 @@ function App() {
   useEffect(() => {
     if (!mapImageUrl) {
       imageRef.current = null
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setMapReady(false)
       drawMap()
       return
     }
@@ -123,7 +141,6 @@ function App() {
     const image = new Image()
     image.onload = () => {
       imageRef.current = image
-      setMapReady(true)
       drawMap()
     }
     image.src = mapImageUrl
@@ -208,7 +225,7 @@ function App() {
   }, [color, zones])
 
   const handlePointerDown = (event) => {
-    if (!mapReady) {
+    if (!imageRef.current) {
       return
     }
 
@@ -304,7 +321,7 @@ function App() {
       body: data,
     })
 
-    await loadState()
+    await refreshState()
     setMessage('Kaart geüpload.')
   }
 
@@ -338,11 +355,11 @@ function App() {
 
     if (!response.ok) {
       setMessage('Claimen mislukt: mogelijk al geclaimd.')
-      await loadState()
+      await refreshState()
       return
     }
 
-    await loadState()
+    await refreshState()
     setMessage('Zone geclaimd!')
   }
 
@@ -380,7 +397,7 @@ function App() {
             <input type="color" value={color} onChange={(event) => setColor(event.target.value)} disabled={!adminMode} />
           </label>
 
-          <button type="button" onClick={() => setDrawMode((value) => !value)} disabled={!adminMode || !mapReady}>
+          <button type="button" onClick={() => setDrawMode((value) => !value)} disabled={!adminMode || !mapVersion}>
             {drawMode ? 'Stop tekenen' : 'Teken modus'}
           </button>
         </div>
